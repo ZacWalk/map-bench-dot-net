@@ -137,7 +137,7 @@ internal class Bench
             {
                 case Operation.Read:
                 {
-                    success = dict.ContainsKey(keys.Random(r));
+                    success = dict.TryGetValue(keys.Random(r), out var existingValue);
                     break;
                 }
 
