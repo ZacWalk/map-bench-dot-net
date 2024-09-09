@@ -5,7 +5,8 @@ var mix = spec.ToOps();
 var capacity = 1_000_000;
 var totalOps = capacity * 55;
 var prefill = capacity / 2;
-var totalKeys = prefill + (totalOps * spec.Insert / 100) + 100;
+var keys_needed_for_inserts = (totalOps * spec.Insert / 100) + 100;
+var totalKeys = prefill + keys_needed_for_inserts + 1000; // 1000 needed for some rounding error?
 
 List<Measurement> measurements = new();
 var keys = new Bench.Keys(totalKeys);
@@ -20,7 +21,9 @@ for (var i = 0; i < Environment.ProcessorCount; i++)
         Prefill = prefill
     };
 
-    measurements.Add(Bench.RunWorkload(mix, config, keys, true));
+    var keysPerThread = keys_needed_for_inserts / config.Threads;
+
+    measurements.Add(Bench.RunWorkload(mix, config, keys, keysPerThread));
 }
 
 var csvFilePath = "latency95.csharp.csv";

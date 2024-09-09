@@ -119,12 +119,12 @@ public enum Operation
 
 internal class Bench
 {
-    private static int RunOps(ConcurrentDictionary<KeyType, ValueType> dict, Keys keys, List<Operation> opMix,
-        int opsPerThread)
+    private static int RunOps(ConcurrentDictionary<KeyType, ValueType> dict, Keys keys, List<Operation> opMix, int opsPerThread, int keysPerThread)
     {
         var random = new Random(Thread.CurrentThread.ManagedThreadId);
         var opMixCount = opMix.Count;
         var totalSuccess = 0;
+        var newKeys = keys.Alloc(keysPerThread).GetEnumerator();
 
         // Main loop
         for (var i = 0; i < opsPerThread; i++)
@@ -143,7 +143,8 @@ internal class Bench
 
                 case Operation.Insert:
                 {
-                    success = dict.TryAdd(keys.Alloc(), 0UL);
+                    success = dict.TryAdd(newKeys.Current, 0UL);
+                    newKeys.MoveNext();
                     break;
                 }
 
@@ -173,7 +174,7 @@ internal class Bench
         return totalSuccess;
     }
 
-    public static Measurement RunWorkload(List<Operation> operations, RunConfig config, Keys keys, bool runChecks)
+    public static Measurement RunWorkload(List<Operation> operations, RunConfig config, Keys keys, int keysPerThread)
     {
         var numThreads = config.Threads;
         var dict = new ConcurrentDictionary<KeyType, ValueType>(numThreads, config.InitialCapacity);
@@ -181,7 +182,7 @@ internal class Bench
         Console.WriteLine($"start {numThreads} threads");
 
         keys.Reset();
-        for (var i = 0; i < config.Prefill; i++) dict.TryAdd(keys.Alloc(), 0UL);
+        foreach (var k in keys.Alloc(config.Prefill)) dict.TryAdd(k, 0UL);
 
         var barrier = new Barrier(numThreads + 1);
         var tasks = new List<Task>();
@@ -194,7 +195,7 @@ internal class Bench
             {
                 barrier.SignalAndWait();
                 var start = Stopwatch.StartNew();
-                RunOps(dict, keys, operations, opsPerThread);
+                RunOps(dict, keys, operations, opsPerThread, keysPerThread);
                 start.Stop();
                 elapsedMilliseconds.Add(start.ElapsedMilliseconds);
             }));
@@ -248,10 +249,10 @@ internal class Bench
             return _keys[i % _allocated];
         }
 
-        public KeyType Alloc()
+        public IEnumerable<KeyType> Alloc(int count)
         {
-            var i = Interlocked.Increment(ref _allocated);
-            return _keys[i - 1];
+            var startIndex = Interlocked.Add(ref _allocated, count) - count;
+            return _keys.Skip(startIndex).Take(count);
         }
     }
 }
