@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace map_bench_dot_net;
 
-using KeyType = ulong;
+using KeyType = string;
 using ValueType = ulong;
 
 public struct Measurement
@@ -143,8 +143,8 @@ internal class Bench
 
                 case Operation.Insert:
                 {
-                    success = dict.TryAdd(newKeys.Current, 0UL);
                     newKeys.MoveNext();
+                    success = dict.TryAdd(newKeys.Current, 0UL);
                     break;
                 }
 
@@ -235,7 +235,7 @@ internal class Bench
         {
             var random = new Random();
             var uniqueSet = new HashSet<KeyType>();
-            while (uniqueSet.Count < totalKeys) uniqueSet.Add((KeyType)random.NextInt64());
+            while (uniqueSet.Count < totalKeys) uniqueSet.Add((KeyType)random.NextInt64().ToString());
             _keys = uniqueSet.ToArray();
         }
 
