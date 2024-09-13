@@ -3,57 +3,23 @@ using System.Diagnostics;
 
 namespace map_bench_dot_net;
 
-using KeyType = string;
+using KeyType = ulong;//string;
 using ValueType = ulong;
 
 public struct Measurement
 {
-    /// <summary>
-    ///     A total number of operations.
-    /// </summary>
-    public long TotalOps { get; set; }
-
-    /// <summary>
-    ///     An average value of latency.
-    /// </summary>
-    public long Latency { get; set; }
-
-    /// <summary>
-    ///     A total number of threads.
-    /// </summary>
+    public long AvLatency { get; set; }
     public long ThreadCount { get; set; }
 }
 
 public struct Mix
 {
-    /// <summary>
-    ///     The percentage of operations in the mix that are reads.
-    /// </summary>
     public byte Read { get; set; }
-
-    /// <summary>
-    ///     The percentage of operations in the mix that are inserts.
-    /// </summary>
     public byte Insert { get; set; }
-
-    /// <summary>
-    ///     The percentage of operations in the mix that are removals.
-    /// </summary>
     public byte Remove { get; set; }
-
-    /// <summary>
-    ///     The percentage of operations in the mix that are updates.
-    /// </summary>
     public byte Update { get; set; }
-
-    /// <summary>
-    ///     The percentage of operations in the mix that are update-or-inserts.
-    /// </summary>
     public byte Upsert { get; set; }
 
-    /// <summary>
-    ///     Constructs a very read-heavy workload (~95%), with limited concurrent modifications.
-    /// </summary>
     public static Mix ReadHeavy()
     {
         return new Mix
@@ -66,9 +32,18 @@ public struct Mix
         };
     }
 
-    /// <summary>
-    ///     Constructs a read-only workload.
-    /// </summary>
+    public static Mix Read99()
+    {
+        return new Mix
+        {
+            Read = 99,
+            Insert = 1,
+            Update = 0,
+            Remove = 0,
+            Upsert = 0
+        };
+    }
+
     public static Mix ReadOnly()
     {
         return new Mix
@@ -103,7 +78,6 @@ public struct Mix
         list.AddRange(Enumerable.Repeat(Operation.Update, Update));
         list.AddRange(Enumerable.Repeat(Operation.Upsert, Upsert));
         Shuffle(list);
-
         return list;
     }
 }
@@ -179,8 +153,6 @@ internal class Bench
         var numThreads = config.Threads;
         var dict = new ConcurrentDictionary<KeyType, ValueType>(numThreads, config.InitialCapacity);
 
-        Console.WriteLine($"start {numThreads} threads");
-
         keys.Reset();
         foreach (var k in keys.Alloc(config.Prefill)) dict.TryAdd(k, 0UL);
 
@@ -188,7 +160,7 @@ internal class Bench
         var tasks = new List<Task>();
         var opsPerThread = config.TotalOps / numThreads;
         var elapsedMilliseconds = new ConcurrentBag<long>();
-        var realTotalOps = opsPerThread * numThreads;
+        var totalOps = opsPerThread * numThreads;
 
         for (var i = 0; i < numThreads; i++)
             tasks.Add(Task.Run(() =>
@@ -204,14 +176,11 @@ internal class Bench
         Task.WaitAll(tasks.ToArray());
 
         var totalMilliseconds = elapsedMilliseconds.Sum();
-        var avgLatency = (long)totalMilliseconds * 1_000_000 / realTotalOps;
-        Console.WriteLine(
-            $"config complete in {totalMilliseconds} milliseconds (ops: {realTotalOps}, avg: {avgLatency} ns)");
+        var avgLatency = (long)totalMilliseconds * 1_000_000 / totalOps;
 
         return new Measurement
         {
-            TotalOps = realTotalOps,
-            Latency = avgLatency,
+            AvLatency = avgLatency,
             ThreadCount = numThreads
         };
     }
@@ -235,7 +204,7 @@ internal class Bench
         {
             var random = new Random();
             var uniqueSet = new HashSet<KeyType>();
-            while (uniqueSet.Count < totalKeys) uniqueSet.Add((KeyType)random.NextInt64().ToString());
+            while (uniqueSet.Count < totalKeys) uniqueSet.Add((KeyType)random.NextInt64());
             _keys = uniqueSet.ToArray();
         }
 
