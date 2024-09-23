@@ -58,7 +58,7 @@ void WriteResults(Dictionary<string, List<Measurement>> measurements)
 
             foreach (var m in mm.Value)
             {
-                var code_line = string.Format("Measurement {{ name: \"c#\", thread_count: {0}, latency: {1} }},",
+                var code_line = string.Format("Measurement {{ name: \"c#\", thread_count: {0}, latency: {1}f64 }},",
                     m.ThreadCount,
                     m.AvLatency
                 );

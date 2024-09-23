@@ -8,7 +8,7 @@ using ValueType = ulong;
 
 public struct Measurement
 {
-    public long AvLatency { get; set; }
+    public double AvLatency { get; set; }
     public long ThreadCount { get; set; }
 }
 
@@ -159,7 +159,7 @@ internal class Bench
         var barrier = new Barrier(numThreads + 1);
         var tasks = new List<Task>();
         var opsPerThread = config.TotalOps / numThreads;
-        var elapsedMilliseconds = new ConcurrentBag<long>();
+        var elapsedMilliseconds = new ConcurrentBag<TimeSpan>();
         var totalOps = opsPerThread * numThreads;
 
         for (var i = 0; i < numThreads; i++)
@@ -169,14 +169,14 @@ internal class Bench
                 var start = Stopwatch.StartNew();
                 RunOps(dict, keys, operations, opsPerThread, keysPerThread);
                 start.Stop();
-                elapsedMilliseconds.Add(start.ElapsedMilliseconds);
+                elapsedMilliseconds.Add(start.Elapsed);
             }));
 
         barrier.SignalAndWait();
         Task.WaitAll(tasks.ToArray());
 
-        var totalMilliseconds = elapsedMilliseconds.Sum();
-        var avgLatency = (long)totalMilliseconds * 1_000_000 / totalOps;
+        var totalTimeSpan = elapsedMilliseconds.Aggregate(TimeSpan.Zero, (sum, current) => sum + current);
+        var avgLatency = totalTimeSpan.TotalNanoseconds / totalOps;
 
         return new Measurement
         {
